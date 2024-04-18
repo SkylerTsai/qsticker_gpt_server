@@ -1,9 +1,11 @@
-from langchain_openai import OpenAI
 from langchain.chains import LLMMathChain, LLMChain
 from langchain.prompts import PromptTemplate
-from langchain_community.utilities import WikipediaAPIWrapper
 from langchain.agents.agent_types import AgentType
 from langchain.agents import Tool, initialize_agent
+from langchain_openai import ChatOpenAI
+from langchain_community.utilities import WikipediaAPIWrapper
+from langchain_community.document_transformers import DoctranTextTranslator
+from langchain_experimental.llm_symbolic_math.base import LLMSymbolicMathChain
 
 from src.config.config import Settings
 from src.dependencies.settings import get_settings
@@ -13,7 +15,7 @@ from src.controller.langchain.schema.question_solution import QuestionSolution
 class LangChainService:
     def __init__(self) -> None:
         # llm
-        self.llm = OpenAI(
+        self.llm = ChatOpenAI(
             model="gpt-4-1106-preview",
             temperature=0,
             api_key=get_settings().gpt_secret_key,
@@ -24,13 +26,16 @@ class LangChainService:
         self.caculator_init()
 
         self.reasoning_init()
+        
+        self.sym_init()
 
         self.agent = initialize_agent(
-            tools=[self.wiki_tool, self.math_tool, self.reasoning_tool],
+            tools=[self.wiki_tool, self.math_tool, self.sym_tool, self.reasoning_tool],
             llm=self.llm,
             agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
             verbose=True,
             handle_parsing_errors=True,
+            return_intermediate_steps=True
         )
 
     def wiki_init(self):
@@ -47,6 +52,14 @@ class LangChainService:
             name="Calculator",
             func=self.math.run,
             description="Useful for when you need to answer questions about math. This tool is only for math questions and nothing else. Only input math expressions.",
+        )
+    
+    def sym_init(self):
+        self.sym = LLMSymbolicMathChain.from_llm(llm=self.llm)
+        self.sym_tool = Tool.from_function(
+            name="Symbolic Math Solver",
+            func=self.sym.run,
+            description="Useful for when you need to answer questions about symbolic math. This tool is only for symbolic math questions and nothing else. Only input math equations or sympy code.",
         )
 
     def reasoning_init(self):

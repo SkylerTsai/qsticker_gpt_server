@@ -2,6 +2,7 @@ langchain-groq
 langchain
 langchain_community
 langchain-openai
+langchain_experimental
 chainlit
 nbconvert
 python-dotenv
