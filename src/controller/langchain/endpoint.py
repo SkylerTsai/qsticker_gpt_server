@@ -5,9 +5,9 @@ from fastapi import APIRouter, Query
 # pylint: disable=import-error
 from src.controller.Quiz.schema.query_Quiz import QueryQuiz
 from src.controller.langchain.schema.question_solution import QuestionSolution
-from src.service.langchain_service import LangChainService
+from src.service.math_solver import MathSolver
 
-service = LangChainService()
+service = MathSolver()
 
 GPT_router = APIRouter(
     prefix="/gpt",
@@ -23,4 +23,4 @@ def query_Quiz(
     """
     詢問數學問題
     """
-    return service.reply(question, lang)
+    return service.question_reply(question)
