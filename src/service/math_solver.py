@@ -102,7 +102,7 @@ class MathSolver:
             Quesrion: {question}
             Please solve the question and return the answer and solution in the following format
             Answer: the brief answer
-            Solution: the way to solve the question, clearly detail the steps involved and give the final answer. Provide the response in bullet points.
+            Solution: the way to solve the question, briefly display the steps involved and give the final answer. Provide the response in bullet points.
             """
         )
         return prompt_template.format(question = saq)
@@ -118,7 +118,7 @@ class MathSolver:
             D: {option_4}
             Please solve the question and return the answer and solution in the the following format
             Answer: the correct option A, B, C, or D
-            Method: the way to solve the question, clearly detail the steps involved and give the final answer. Provide the response in bullet points.
+            Method: the way to solve the question, briefly display the steps involved and give the final answer. Provide the response in bullet points.
             """
         )
         return prompt_template.format(
