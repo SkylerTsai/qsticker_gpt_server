@@ -5,18 +5,18 @@ from langchain.agents.agent import AgentExecutor
 from langchain.agents import Tool, initialize_agent
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import WikipediaAPIWrapper
-from langchain_experimental.llm_symbolic_math.base import LLMSymbolicMathChain
+
 
 from src.dependencies.settings import get_settings
 from src.controller.langchain.schema.question_solution import QuestionSolution
-
+from src.service.MyLLMSymbolicMathChain.base import LLMSymbolicMathChain
 
 class MathSolver:
-    def __init__(self) -> None:
+    def __init__(self, model="gpt-4-1106-preview", temperature=0) -> None:
         # llm
         self.llm = ChatOpenAI(
-            model="gpt-4-1106-preview",
-            temperature=0,
+            model=model,
+            temperature=temperature,
             api_key=get_settings().gpt_secret_key,
         )
 
@@ -67,7 +67,7 @@ class MathSolver:
         self.sym_tool = Tool.from_function(
             name="Symbolic Math Solver",
             func=self.sym.run,
-            description="Useful for when you need to answer questions about symbolic math. This tool is only for symbolic math questions and nothing else. Only input math equations e.g., 2x + y = 3, 4x + 5y = 10.",
+            description="Useful for when you need to answer questions about symbolic math. This tool is only for symbolic math questions and nothing else. Only input math equations seperated by ','",
         )
 
     def reasoning_init(self):

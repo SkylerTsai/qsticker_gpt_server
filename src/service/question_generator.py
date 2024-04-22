@@ -4,11 +4,10 @@ from langchain_openai import ChatOpenAI
 from src.dependencies.settings import get_settings
 
 class QuestuionGenerator:
-    def __init__(self) -> None:
-        # llm
+    def __init__(self, model="gpt-4-1106-preview", temperature=0.8) -> None:
         self.llm = ChatOpenAI(
-            model="gpt-4-1106-preview",
-            temperature=0.8,
+            model=model,
+            temperature=temperature,
             api_key=get_settings().gpt_secret_key,
         )
 
