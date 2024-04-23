@@ -3,7 +3,7 @@ from langchain.prompts.prompt import PromptTemplate
 _PROMPT_TEMPLATE = """Translate a math problem into a expression that can be executed using Python's SymPy library. Use the output of running this code to answer the question.
 
 Question: ${{Question with math problem.}}
-```text
+```python
 ${{code that use sympy to solve the question and save the result to the variable 'res'}}
 ```
 ```output
@@ -14,7 +14,7 @@ Answer: ${{Answer}}
 Begin.
 
 Question: What is the limit of sin(x) / x as x goes to 0
-```text
+```python
 import sympy
 x = sympy.symbols('x')
 res = sympy.sympify("limit(sin(x)/x, x, 0)")
@@ -25,7 +25,7 @@ res = sympy.sympify("limit(sin(x)/x, x, 0)")
 Answer: 1
 
 Question: What is the integral of e^-x from 0 to infinity
-```text
+```python
 import sympy
 x = sympy.symbols('x')
 res = sympy.sympify(integrate(exp(-x), (x, 0, oo)))
@@ -35,7 +35,7 @@ res = sympy.sympify(integrate(exp(-x), (x, 0, oo)))
 ```
 
 Question: What are the solutions to this equation x**2 - x?
-```text
+```python
 import sympy
 x = sympy.symbols('x')
 res = sympy.sympify(solveset(x**2 - x, x))
@@ -45,7 +45,7 @@ res = sympy.sympify(solveset(x**2 - x, x))
 ```
 
 Question: What are the solutions to these equations x**2 - x?
-```text
+```python
 import sympy
 x = sympy.symbols('x')
 res = sympy.sympify(solveset(x**2 - x, x))

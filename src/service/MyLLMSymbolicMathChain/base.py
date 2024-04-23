@@ -83,7 +83,7 @@ class LLMSymbolicMathChain(Chain):
     ) -> Dict[str, str]:
         run_manager.on_text(llm_output, color="green", verbose=self.verbose)
         llm_output = llm_output.strip()
-        text_match = re.search(r"^```text(.*?)```", llm_output, re.DOTALL)
+        text_match = re.search(r"```python(.*?)```", llm_output, re.DOTALL)
         if text_match:
             sympy_code = text_match.group(1)
             output = self._evaluate_expression(sympy_code)

@@ -1,11 +1,9 @@
 from langchain.chains import LLMMathChain, LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.agents.agent_types import AgentType
-from langchain.agents.agent import AgentExecutor
 from langchain.agents import Tool, initialize_agent
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import WikipediaAPIWrapper
-
 
 from src.dependencies.settings import get_settings
 from src.controller.langchain.schema.question_solution import QuestionSolution
@@ -14,11 +12,7 @@ from src.service.MyLLMSymbolicMathChain.base import LLMSymbolicMathChain
 class MathSolver:
     def __init__(self, model="gpt-4-1106-preview", temperature=0) -> None:
         # llm
-        self.llm = ChatOpenAI(
-            model=model,
-            temperature=temperature,
-            api_key=get_settings().gpt_secret_key,
-        )
+        self.llm_init(model, temperature)
 
         self.wiki_init()
 
@@ -28,30 +22,38 @@ class MathSolver:
         
         self.sym_init()
 
+        self.tools = [self.wiki_tool, self.math_tool, self.sym_tool, self.reasoning_tool]
+
         self.agent = initialize_agent(
-            tools=[self.wiki_tool, self.math_tool, self.sym_tool, self.reasoning_tool],
+            tools=self.tools,
             llm=self.llm,
+            agent_instructions="""
+            Try to solve a math function with given tools
+            """,
             agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
             verbose=True,
+            max_iterations=10,
             handle_parsing_errors=True,
             return_intermediate_steps=True
         )
 
-#        self.agent = AgentExecutor().from_agent_and_tools(
-#            tools=[self.wiki_tool, self.math_tool, self.sym_tool, self.reasoning_tool],
-#            llm=self.llm,
-#            agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-#            verbose=True,
-#            handle_parsing_errors=True,
-#            return_intermediate_steps=True,
-#        )
+    def llm_init(self, model, temperature):
+        self.llm = ChatOpenAI(
+            model=model,
+            temperature=temperature,
+            api_key=get_settings().gpt_secret_key,
+        )
 
     def wiki_init(self):
         self.wiki = WikipediaAPIWrapper()
         self.wiki_tool = Tool(
             name="Wikipedia",
             func=self.wiki.run,
-            description="A useful tool for searching the Internet to find information on world events, issues, dates, years, etc. Worth using for general topics. Use precise questions.",
+            description="""
+            A useful tool for searching the Internet to find information on world events, issues, dates, years, etc. 
+            Worth using for general topics. 
+            Use precise questions.
+            """,
         )
 
     def caculator_init(self):
@@ -59,7 +61,11 @@ class MathSolver:
         self.math_tool = Tool.from_function(
             name="Calculator",
             func=self.math.run,
-            description="Useful for when you need to answer questions about math. This tool is only for math questions and nothing else. Only input math expressions.",
+            description="""
+            Useful for when you need to answer questions about math. 
+            This tool is only for math questions and nothing else. 
+            Only input math expressions.
+            """,
         )
     
     def sym_init(self):
@@ -67,7 +73,11 @@ class MathSolver:
         self.sym_tool = Tool.from_function(
             name="Symbolic Math Solver",
             func=self.sym.run,
-            description="Useful for when you need to answer questions about symbolic math. This tool is only for symbolic math questions and nothing else. Only input math equations seperated by ','",
+            description="""
+            Useful for when you need to answer questions about symbolic math. 
+            This tool is only for symbolic math questions and nothing else. 
+            Only input math equations seperated by ','
+            """,
         )
 
     def reasoning_init(self):
