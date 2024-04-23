@@ -28,11 +28,15 @@ class MathSolver:
             tools=self.tools,
             llm=self.llm,
             agent_instructions="""
-            Try to solve a math function with given tools
+            Try to solve a math function with given tools.
+            Trust the answer from the calculators
+            Ignore the problem that the answer is not integer.
             """,
             agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+            early_stopping_method='generate',
             verbose=True,
-            max_iterations=10,
+            max_execution_time=60,
+            max_iterations=5,
             handle_parsing_errors=True,
             return_intermediate_steps=True
         )

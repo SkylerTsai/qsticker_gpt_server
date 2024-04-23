@@ -22,8 +22,7 @@ class QuestuionGenerator:
             Solution: {solution}
             Please construct a new similar question which has the same structure but with different objects and numbers
             Return in the following format
-            New question:
-            New solution:
+            New question: the new question
             """
         )
         return prompt_template.format(question=question, solution=solution)

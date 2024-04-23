@@ -78,7 +78,7 @@ async def chatbot():
 async def setup(settings):
     print("on_settings_update", settings)
     global math_solver
-    math_solver.llm_init(model=settings["Model"])
+    math_solver.llm_init(model=settings["Model"], temperature=settings["Temperature"])
     global translator
     translator.lang_init(lang=settings["Language"])
     global questuion_generator
@@ -130,7 +130,9 @@ async def get_solution(input):
         {"input":input},
         callbacks=[cl.AsyncLangchainCallbackHandler()]\
     )
-    await reply(response["output"])
+    # await reply(response["output"])
+    prompt = translator.question_solution_prompt(input, response["output"])
+    await cl.Message(content=translator.llm_translate(prompt)).send()
 
     return response
 
@@ -168,7 +170,7 @@ async def generate_new_quesstion(response):
         await reply(new_question)
         await get_solution(math_solver.SAQ_prompt(new_question))
         
-        yn = await reply("是否要更重新生成題目")
+        yn = await YesOrNo("是否要更重新生成題目")
         if yn == "NO":
             finished = True
         else:
@@ -176,9 +178,3 @@ async def generate_new_quesstion(response):
             break
 
     await reply("對話結束")
-
-'''
-題目->題目 X
-題目+過程->題目
-題目->過程->倒推過程->題目 X
-'''
