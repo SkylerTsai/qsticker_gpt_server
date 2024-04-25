@@ -4,6 +4,7 @@ from langchain.agents.agent_types import AgentType
 from langchain.agents import Tool, initialize_agent
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import WikipediaAPIWrapper
+from langchain.memory import ChatMessageHistory
 
 from src.dependencies.settings import get_settings
 from src.controller.langchain.schema.question_solution import QuestionSolution
@@ -28,10 +29,10 @@ class MathSolver:
             tools=self.tools,
             llm=self.llm,
             agent_instructions="""
-            Try to solve a math function with given tools.
-            Trust the answer from the calculators
-            Ignore the problem that the answer is not integer.
-            """,
+Try to solve a math function with given tools.
+Trust the answer from the calculators
+Ignore the problem that the answer is not integer.
+""",
             agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
             early_stopping_method='generate',
             verbose=True,
@@ -54,10 +55,10 @@ class MathSolver:
             name="Wikipedia",
             func=self.wiki.run,
             description="""
-            A useful tool for searching the Internet to find information on world events, issues, dates, years, etc. 
-            Worth using for general topics. 
-            Use precise questions.
-            """,
+A useful tool for searching the Internet to find information on world events, issues, dates, years, etc. 
+Worth using for general topics. 
+Use precise questions.
+""",
         )
 
     def caculator_init(self):
@@ -66,10 +67,11 @@ class MathSolver:
             name="Calculator",
             func=self.math.run,
             description="""
-            Useful for when you need to answer questions about math. 
-            This tool is only for math questions and nothing else. 
-            Only input math expressions.
-            """,
+Useful for when you need to answer a single math expression. 
+This tool is only for math questions and nothing else. 
+Only input ONE math expression.
+"""
+            ,
         )
     
     def sym_init(self):
@@ -78,20 +80,20 @@ class MathSolver:
             name="Symbolic Math Solver",
             func=self.sym.run,
             description="""
-            Useful for when you need to answer questions about symbolic math. 
-            This tool is only for symbolic math questions and nothing else. 
-            Only input math equations seperated by ','
-            """,
+Useful for when you need to answer questions about symbolic math. 
+This tool is only for symbolic math questions and nothing else. 
+Only input math equations seperated by ','
+ """,
         )
 
     def reasoning_init(self):
         word_problem_template = """
-        You are a reasoning agent tasked with solving the user's logic-based questions. 
-        Logically arrive at the solution, and be factual. 
-        In your answers, clearly detail the steps involved and give the final answer. 
-        Provide the response in bullet points. 
-        Question: {question}
-        """
+You are a reasoning agent tasked with solving the user's logic-based questions. 
+Logically arrive at the solution, and be factual. 
+In your answers, clearly detail the steps involved and give the final answer. 
+Provide the response in bullet points. 
+Question: {question}
+"""
 
         math_assistant_prompt = PromptTemplate(
             input_variables=["question"],
@@ -110,30 +112,30 @@ class MathSolver:
         )
 
     def SAQ_prompt(self, saq):
-        prompt_template = PromptTemplate.from_template(
-            """
-            The following is a math question
-            Quesrion: {question}
-            Please solve the question and return the answer and solution in the following format
-            Answer: the brief answer
-            Solution: the way to solve the question, briefly display the steps involved and give the final answer. Provide the response in bullet points.
-            """
+        prompt_template = PromptTemplate.from_template("""
+The following is a math question
+Quesrion: {question}
+Please solve the question and return the answer and solution in the following format
+Answer: the brief answer ONLY
+Solution: the way to solve the question, briefly display the steps involved and give the final answer. 
+Provide the response in bullet points. Enclose equations with dollar signs ($).
+"""
         )
         return prompt_template.format(question = saq)
         
     def MCQ_prompt(self, mcq):
-        prompt_template = PromptTemplate.from_template(
-            """
-            The following is a math question and 4 options
-            Quesrion: {question}
-            A: {option_1}
-            B: {option_2}
-            C: {option_3}
-            D: {option_4}
-            Please solve the question and return the answer and solution in the the following format
-            Answer: the correct option A, B, C, or D
-            Method: the way to solve the question, briefly display the steps involved and give the final answer. Provide the response in bullet points.
-            """
+        prompt_template = PromptTemplate.from_template("""
+The following is a math question and 4 options
+Quesrion: {question}
+A: {option_1}
+B: {option_2}
+C: {option_3}
+D: {option_4}
+Please solve the question and return the answer and solution in the the following format
+Answer: the correct option A, B, C, or D
+Solution: the way to solve the question, briefly display the steps involved and give the final answer. 
+Provide the response in bullet points.  Enclose equations with dollar signs ($).
+"""
         )
         return prompt_template.format(
             question = mcq["question"], 

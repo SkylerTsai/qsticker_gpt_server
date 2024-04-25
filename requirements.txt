@@ -3,6 +3,7 @@ langchain
 langchain_community
 langchain-openai
 langchain_experimental
+langsmith
 chainlit
 nbconvert
 python-dotenv

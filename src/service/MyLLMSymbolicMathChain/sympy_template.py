@@ -44,14 +44,17 @@ res = sympy.sympify(solveset(x**2 - x, x))
 [0, 1]
 ```
 
-Question: What are the solutions to these equations x**2 - x?
+Question: What are the solutions to these equations A = 3*B, B = C + 12, C = A - 20?
 ```python
 import sympy
-x = sympy.symbols('x')
-res = sympy.sympify(solveset(x**2 - x, x))
+A, B, C = sympy.symbols('A B C')
+eq1 = sympy.Eq(A, 3 * B)
+eq2 = sympy.Eq(B, C + 12)
+eq3 = sympy.Eq(C, A - 20)
+res = sympy.solve((eq1, eq2, eq3), (A, B, C))
 ```
 ```output
-[0, 1]
+{{A: 12, B: 4, C: -8}}
 ```
 
 Question: {question}

@@ -1,5 +1,5 @@
 import chainlit as cl
-from chainlit.input_widget import Select, Slider
+from chainlit.input_widget import Select, Slider, Switch
 from src.service.math_solver import MathSolver
 from src.service.translator import Translator
 from src.service.question_generator import QuestuionGenerator
@@ -8,7 +8,7 @@ from src.service.question_generator import QuestuionGenerator
 math_solver = MathSolver()
 translator = Translator()
 questuion_generator = QuestuionGenerator()
-
+human_intervention = True
 
 async def YesOrNo(msg):
     content = translator.translate(msg)
@@ -46,15 +46,15 @@ async def chatbot():
                 id="Model",
                 label="OpenAI Chat Model",
                 values=["gpt-3.5-turbo-0125", "gpt-4-1106-preview"],
-                initial_index=1,
+                initial_index=0,
             ),
             Slider(
                 id="Temperature",
                 label="Temperature for Question Generation",
                 initial=0.5,
                 min=0,
-                max=1,
-                step=0.05,
+                max=2,
+                step=0.1,
             ),
             Select(
                 id="Language",
@@ -62,8 +62,15 @@ async def chatbot():
                 values=["zh-TW", "en"],
                 initial_index=0,
             ),
+            Switch(
+                id="Human-intervention",
+                label="Enable human intervention",
+                initial=True,
+            ),
         ]
     ).send()
+
+    await setup(settings)
 
     print("hello", cl.user_session.get("id"))
     cl.user_session.set("agent", math_solver.agent)
@@ -76,14 +83,15 @@ async def chatbot():
 
 @cl.on_settings_update
 async def setup(settings):
-    print("on_settings_update", settings)
+    #print("on_settings_update", settings)
     global math_solver
     math_solver.llm_init(model=settings["Model"], temperature=settings["Temperature"])
     global translator
     translator.lang_init(lang=settings["Language"])
     global questuion_generator
     questuion_generator.llm_init(model=settings["Model"], temperature=settings["Temperature"])
-
+    global human_intervention
+    human_intervention = settings["Human-intervention"]
 
 @cl.on_chat_end
 async def chatbot():
@@ -124,6 +132,7 @@ async def MCQ():
     await solve(math_solver.MCQ_prompt(mcq), "MCQ")
 
 
+@cl.step(type="question solving")
 async def get_solution(input):
     agent = cl.user_session.get("agent")
     response = await agent.acall(
@@ -159,7 +168,7 @@ async def solve(input, type="SAQ"):
             await reply("對話結束")
 
 
-async def generate_new_quesstion(response):    
+async def generate_new_quesstion(response):
     question, solution, steps = response['input'], response['output'], response['intermediate_steps']
 
     finished = False

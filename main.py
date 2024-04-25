@@ -9,6 +9,7 @@ from src.dependencies.settings import get_settings
 from src.controller.WorkspaceQuizGroup.endpoint import WorkspaceQuizGroup_router
 from src.controller.Quiz.endpoint import Quiz_router
 from src.controller.langchain.endpoint import GPT_router
+from src.controller.QSticker.endpoint import QSticker_router
 
 app = FastAPI()
 
@@ -27,6 +28,8 @@ app.add_middleware(
 app.include_router(WorkspaceQuizGroup_router)
 app.include_router(Quiz_router)
 app.include_router(GPT_router)
+app.include_router(QSticker_router)
+
 
 @app.get("/")
 def root():
