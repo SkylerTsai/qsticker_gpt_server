@@ -1,17 +1,17 @@
 import chainlit as cl
 from chainlit.input_widget import Select, Slider, Switch
+from chainlit.types import ThreadDict
+from langchain.memory import ChatMessageHistory
+from typing import Optional
 from src.service.math_solver import MathSolver
 from src.service.translator import Translator
 from src.service.question_generator import QuestuionGenerator
+from src.service.QSticker_service import QStickerService
+from src.controller.QSticker.schema.user_info import UserInfoRequestBody, UserInfoResponseBody
 
 
-math_solver = MathSolver()
-translator = Translator()
-questuion_generator = QuestuionGenerator()
-human_intervention = True
-
-async def YesOrNo(msg):
-    content = translator.translate(msg)
+async def YesOrNo(msg) -> Optional[str]:
+    content = cl.user_session.get("translator").translate(msg)
     res = await cl.AskActionMessage(
         content=content,
         actions=[
@@ -25,13 +25,13 @@ async def YesOrNo(msg):
     return None
 
 
-async def reply(msg, actions=None):
-    content = translator.translate(msg)
+async def reply(msg, actions=None) -> None:
+    content = cl.user_session.get("translator").translate(msg)
     await cl.Message(content=content, actions=actions).send()
 
 
-async def askMessage(msg):
-    content = translator.translate(msg)
+async def askMessage(msg) -> Optional[str]:
+    content = cl.user_session.get("translator").translate(msg)
     res = await cl.AskUserMessage(content=content).send()
     if res:  
         return res['output']
@@ -39,7 +39,9 @@ async def askMessage(msg):
 
 
 @cl.on_chat_start
-async def chatbot():
+async def start() -> None:
+    cl.user_session.set("memory", ChatMessageHistory(session_id=cl.user_session.get("id")))
+
     settings = await cl.ChatSettings(
         [
             Select(
@@ -73,7 +75,6 @@ async def chatbot():
     await setup(settings)
 
     print("hello", cl.user_session.get("id"))
-    cl.user_session.set("agent", math_solver.agent)
     actions = [
         cl.Action(name="SAQ", value="SAQ", label="Short Answer Question", description="Only question"),
         cl.Action(name="MCQ", value="MCQ", label="Multiple Choice Question", description="Question and 4 options"),
@@ -82,70 +83,92 @@ async def chatbot():
 
 
 @cl.on_settings_update
-async def setup(settings):
+async def setup(settings: cl.ChatSettings) -> None:
     #print("on_settings_update", settings)
-    global math_solver
-    math_solver.llm_init(model=settings["Model"], temperature=settings["Temperature"])
-    global translator
-    translator.lang_init(lang=settings["Language"])
-    global questuion_generator
-    questuion_generator.llm_init(model=settings["Model"], temperature=settings["Temperature"])
-    global human_intervention
-    human_intervention = settings["Human-intervention"]
+    cl.user_session.set("math_solver", MathSolver(
+        model=settings["Model"], 
+        temperature=settings["Temperature"],
+        memory=cl.user_session.get("memory"),
+    ))
+    cl.user_session.set("translator", Translator(
+        model=settings["Model"], 
+        temperature=settings["Temperature"], 
+        lang=settings["Language"],
+    ))
+    cl.user_session.set("questuion_generator", QuestuionGenerator(
+        model=settings["Model"], 
+        temperature=settings["Temperature"],
+    ))
+
 
 @cl.on_chat_end
-async def chatbot():
+async def end() -> None:
     print("goodbye", cl.user_session.get("id"))
 
 
+@cl.on_chat_resume
+async def resume(thread: ThreadDict):
+    return
+
+
+@cl.password_auth_callback
+def auth_callback(account: str, password: str) -> Optional[cl.User]:
+    if (account, password) == ("test", "test"):
+        return cl.User(identifier=account)
+    try:
+        res = QStickerService().login(UserInfoRequestBody(account=account, password=password))
+        return cl.User(identifier=res.username, token=res.token)
+    except Exception:
+        print(account + ' login failed!')
+    return None
+
+
 @cl.on_message
-async def on_message(message: cl.Message):
-    await solve(math_solver.SAQ_prompt(message.content))
+async def on_message(message: cl.Message) -> None:
+    await solve(MathSolver.SAQ_prompt(message.content))
 
 
 @cl.action_callback("SAQ")
-async def SAQ():
+async def SAQ() -> None:
     res = await askMessage("請輸入問題")
     if res:  
-        await solve(math_solver.SAQ_prompt(res))
+        await solve(MathSolver.SAQ_prompt(res))
 
 
 @cl.action_callback("MCQ")
-async def MCQ():
+async def MCQ() -> None:
     mcq = {}
     res = await askMessage("請輸入問題")
-    if res:
-        mcq['question'] = res
+    if res: mcq['question'] = res
     res = await askMessage("請輸入選項1")
-    if res:
-        mcq['option_1'] = res
+    if res: mcq['option_1'] = res
     res = await askMessage("請輸入選項2")
-    if res:
-        mcq['option_2'] = res
+    if res: mcq['option_2'] = res
     res = await askMessage("請輸入選項3")
-    if res:
-        mcq['option_3'] = res
+    if res: mcq['option_3'] = res
     res = await askMessage("請輸入選項4")
-    if res:
-        mcq['option_4'] = res
+    if res: mcq['option_4'] = res
 
-    await solve(math_solver.MCQ_prompt(mcq), "MCQ")
+    await solve(MathSolver.MCQ_prompt(mcq), "MCQ")
 
 
 @cl.step(type="question solving")
-async def get_solution(input):
-    agent = cl.user_session.get("agent")
-    response = await agent.acall(
+async def get_solution(input) -> dict:
+    math_solver = cl.user_session.get("math_solver")
+    agent = math_solver.agent_with_chat_history
+    response = await agent.astream(
         {"input":input},
+        config={"configurable": {"session_id": cl.user_session.get("id")}},
         callbacks=[cl.AsyncLangchainCallbackHandler()]\
     )
     # await reply(response["output"])
-    prompt = translator.question_solution_prompt(input, response["output"])
-    await cl.Message(content=translator.llm_translate(prompt)).send()
+    prompt = cl.user_session.get("translator").question_solution_prompt(input, response["output"])
+    await cl.Message(content=cl.user_session.get("translator").llm_translate(prompt)).send()
 
     return response
 
-async def solve(input, type="SAQ"):
+
+async def solve(input, type="SAQ") -> None:
     solved = False
     while not solved:
         response = await get_solution(input)
@@ -168,16 +191,16 @@ async def solve(input, type="SAQ"):
             await reply("對話結束")
 
 
-async def generate_new_quesstion(response):
+async def generate_new_quesstion(response) -> None:
     question, solution, steps = response['input'], response['output'], response['intermediate_steps']
 
     finished = False
     while not finished:
         await reply("題目生成中...")
-        question_prompt = questuion_generator.question_generation_prompt(question, solution)
-        new_question = questuion_generator.reply(question_prompt)
+        question_prompt = cl.user_session.get("questuion_generator").question_generation_prompt(question, solution)
+        new_question = cl.user_session.get("questuion_generator").reply(question_prompt)
         await reply(new_question)
-        await get_solution(math_solver.SAQ_prompt(new_question))
+        await get_solution(MathSolver.SAQ_prompt(new_question))
         
         yn = await YesOrNo("是否要更重新生成題目")
         if yn == "NO":

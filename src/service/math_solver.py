@@ -5,13 +5,14 @@ from langchain.agents import Tool, initialize_agent
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import WikipediaAPIWrapper
 from langchain.memory import ChatMessageHistory
+from langchain_core.runnables.history import RunnableWithMessageHistory
 
 from src.dependencies.settings import get_settings
 from src.controller.langchain.schema.question_solution import QuestionSolution
 from src.service.MyLLMSymbolicMathChain.base import LLMSymbolicMathChain
 
 class MathSolver:
-    def __init__(self, model="gpt-4-1106-preview", temperature=0) -> None:
+    def __init__(self, model="gpt-4-1106-preview", temperature=0, memory=None) -> None:
         # llm
         self.llm_init(model, temperature)
 
@@ -40,6 +41,18 @@ Ignore the problem that the answer is not integer.
             max_iterations=5,
             handle_parsing_errors=True,
             return_intermediate_steps=True
+        )
+
+        self.memory = memory
+        if not memory:
+            self.memory = ChatMessageHistory(session_id="None")
+
+        
+        self.agent_with_chat_history = RunnableWithMessageHistory(
+            self.agent,
+            lambda session_id: memory,
+            input_messages_key="input",
+            history_messages_key="chat_history",
         )
 
     def llm_init(self, model, temperature):
@@ -111,7 +124,7 @@ Question: {question}
             description="Useful for when you need to answer logic-based/reasoning questions.",
         )
 
-    def SAQ_prompt(self, saq):
+    def SAQ_prompt(saq):
         prompt_template = PromptTemplate.from_template("""
 The following is a math question
 Quesrion: {question}
@@ -123,7 +136,7 @@ Provide the response in bullet points. Enclose equations with dollar signs ($).
         )
         return prompt_template.format(question = saq)
         
-    def MCQ_prompt(self, mcq):
+    def MCQ_prompt(mcq):
         prompt_template = PromptTemplate.from_template("""
 The following is a math question and 4 options
 Quesrion: {question}

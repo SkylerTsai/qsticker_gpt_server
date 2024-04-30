@@ -33,3 +33,4 @@ pydantic_core==2.10.1
 pydantic-settings==2.1.0
 Sympy
 deep-translator
+literalai
