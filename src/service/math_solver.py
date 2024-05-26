@@ -1,18 +1,16 @@
 from langchain.chains import LLMMathChain, LLMChain
 from langchain.prompts import PromptTemplate
-from langchain.agents.agent_types import AgentType
-from langchain.agents import Tool, initialize_agent
+from langchain.agents import Tool, AgentExecutor, create_tool_calling_agent
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import WikipediaAPIWrapper
-from langchain.memory import ChatMessageHistory
-from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_core.prompts import ChatPromptTemplate
 
 from src.dependencies.settings import get_settings
 from src.controller.langchain.schema.question_solution import QuestionSolution
 from src.service.MyLLMSymbolicMathChain.base import LLMSymbolicMathChain
 
 class MathSolver:
-    def __init__(self, model="gpt-4-1106-preview", temperature=0, memory=None) -> None:
+    def __init__(self, model="gpt-4-1106-preview", temperature=0) -> None:
         # llm
         self.llm_init(model, temperature)
 
@@ -26,34 +24,31 @@ class MathSolver:
 
         self.tools = [self.wiki_tool, self.math_tool, self.sym_tool, self.reasoning_tool]
 
-        self.agent = initialize_agent(
-            tools=self.tools,
-            llm=self.llm,
-            agent_instructions="""
-Try to solve a math function with given tools.
-Trust the answer from the calculators
-Ignore the problem that the answer is not integer.
-""",
-            agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-            early_stopping_method='generate',
-            verbose=True,
+        prompt = ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                "You are a helpful assistant. Make sure to use the tools for information.",
+            ),
+            ("placeholder", "{chat_history}"),
+            ("human", "{input}"),
+            ("placeholder", "{agent_scratchpad}"),
+        ]
+)
+        
+        self.tool_agent = create_tool_calling_agent(self.llm, self.tools, prompt)
+
+        self.agent = AgentExecutor(
+            agent = self.tool_agent,
+            tools = self.tools,
+            early_stopping_method='force', # better be 'generate' but bug exist
+            verbose=False,
             max_execution_time=60,
             max_iterations=5,
             handle_parsing_errors=True,
             return_intermediate_steps=True
         )
 
-        self.memory = memory
-        if not memory:
-            self.memory = ChatMessageHistory(session_id="None")
-
-        
-        self.agent_with_chat_history = RunnableWithMessageHistory(
-            self.agent,
-            lambda session_id: memory,
-            input_messages_key="input",
-            history_messages_key="chat_history",
-        )
 
     def llm_init(self, model, temperature):
         self.llm = ChatOpenAI(
@@ -90,7 +85,7 @@ Only input ONE math expression.
     def sym_init(self):
         self.sym = LLMSymbolicMathChain.from_llm(llm=self.llm)
         self.sym_tool = Tool.from_function(
-            name="Symbolic Math Solver",
+            name="SymbolicMathSolver",
             func=self.sym.run,
             description="""
 Useful for when you need to answer questions about symbolic math. 
@@ -119,7 +114,7 @@ Question: {question}
         )
 
         self.reasoning_tool = Tool.from_function(
-            name="Reasoning Tool",
+            name="ReasoningTool",
             func=self.reasoning.run,
             description="Useful for when you need to answer logic-based/reasoning questions.",
         )
@@ -139,7 +134,7 @@ Provide the response in bullet points. Enclose equations with dollar signs ($).
     def MCQ_prompt(mcq):
         prompt_template = PromptTemplate.from_template("""
 The following is a math question and 4 options
-Quesrion: {question}
+Quesrion: {question
 A: {option_1}
 B: {option_2}
 C: {option_3}

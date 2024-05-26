@@ -48,7 +48,7 @@ async def start() -> None:
                 id="Model",
                 label="OpenAI Chat Model",
                 values=["gpt-3.5-turbo-0125", "gpt-4-1106-preview"],
-                initial_index=0,
+                initial_index=1,
             ),
             Slider(
                 id="Temperature",
@@ -88,8 +88,8 @@ async def setup(settings: cl.ChatSettings) -> None:
     cl.user_session.set("math_solver", MathSolver(
         model=settings["Model"], 
         temperature=settings["Temperature"],
-        memory=cl.user_session.get("memory"),
     ))
+    cl.user_session.set("agent", cl.user_session.get("math_solver").agent)
     cl.user_session.set("translator", Translator(
         model=settings["Model"], 
         temperature=settings["Temperature"], 
@@ -104,11 +104,6 @@ async def setup(settings: cl.ChatSettings) -> None:
 @cl.on_chat_end
 async def end() -> None:
     print("goodbye", cl.user_session.get("id"))
-
-
-@cl.on_chat_resume
-async def resume(thread: ThreadDict):
-    return
 
 
 @cl.password_auth_callback
@@ -152,13 +147,10 @@ async def MCQ() -> None:
     await solve(MathSolver.MCQ_prompt(mcq), "MCQ")
 
 
-@cl.step(type="question solving")
 async def get_solution(input) -> dict:
-    math_solver = cl.user_session.get("math_solver")
-    agent = math_solver.agent_with_chat_history
-    response = await agent.astream(
+    agent = cl.user_session.get("agent")
+    response = await agent.acall(
         {"input":input},
-        config={"configurable": {"session_id": cl.user_session.get("id")}},
         callbacks=[cl.AsyncLangchainCallbackHandler()]\
     )
     # await reply(response["output"])
