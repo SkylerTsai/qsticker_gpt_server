@@ -25,16 +25,16 @@ class MathSolver:
         self.tools = [self.wiki_tool, self.math_tool, self.sym_tool, self.reasoning_tool]
 
         prompt = ChatPromptTemplate.from_messages(
-        [
-            (
-                "system",
-                "You are a helpful assistant. Make sure to use the tools for information.",
-            ),
-            ("placeholder", "{chat_history}"),
-            ("human", "{input}"),
-            ("placeholder", "{agent_scratchpad}"),
-        ]
-)
+            [
+                (
+                    "system",
+                    "You are a helpful assistant. Make sure to use the tools for information.",
+                ),
+                ("placeholder", "{chat_history}"),
+                ("human", "{input}"),
+                ("placeholder", "{agent_scratchpad}"),
+            ]
+        )
         
         self.tool_agent = create_tool_calling_agent(self.llm, self.tools, prompt)
 
@@ -91,7 +91,7 @@ Only input ONE math expression.
 Useful for when you need to answer questions about symbolic math. 
 This tool is only for symbolic math questions and nothing else. 
 Only input math equations seperated by ','
- """,
+""",
         )
 
     def reasoning_init(self):
@@ -122,7 +122,7 @@ Question: {question}
     def SAQ_prompt(saq):
         prompt_template = PromptTemplate.from_template("""
 The following is a math question
-Quesrion: {question}
+Question: {question}
 Please solve the question and return the answer and solution in the following format
 Answer: the brief answer ONLY
 Solution: the way to solve the question, briefly display the steps involved and give the final answer. 
@@ -134,7 +134,7 @@ Provide the response in bullet points. Enclose equations with dollar signs ($).
     def MCQ_prompt(mcq):
         prompt_template = PromptTemplate.from_template("""
 The following is a math question and 4 options
-Quesrion: {question
+Question: {question}
 A: {option_1}
 B: {option_2}
 C: {option_3}
