@@ -41,10 +41,10 @@ class MathSolver:
         self.agent = AgentExecutor(
             agent = self.tool_agent,
             tools = self.tools,
-            early_stopping_method='force', # better be 'generate' but bug exist
+            early_stopping_method='generate', # better be 'generate' but bug exist
             verbose=False,
             max_execution_time=60,
-            max_iterations=5,
+            max_iterations=10,
             handle_parsing_errors=True,
             return_intermediate_steps=True
         )
@@ -67,6 +67,7 @@ A useful tool for searching the Internet to find information on world events, is
 Worth using for general topics. 
 Use precise questions.
 """,
+            handle_tool_error="Wikipedia execution failed, try to use other tool or change the input",
         )
 
     def caculator_init(self):
@@ -78,8 +79,8 @@ Use precise questions.
 Useful for when you need to answer a single math expression. 
 This tool is only for math questions and nothing else. 
 Only input ONE math expression.
-"""
-            ,
+""",
+            handle_tool_error="Calculator execution failed, try to use other tool or change the input",
         )
     
     def sym_init(self):
@@ -92,6 +93,7 @@ Useful for when you need to answer questions about symbolic math.
 This tool is only for symbolic math questions and nothing else. 
 Only input math equations seperated by ','
 """,
+            handle_tool_error="SymbolicMathSolver execution failed, try to use other tool or change the input",
         )
 
     def reasoning_init(self):
@@ -99,6 +101,7 @@ Only input math equations seperated by ','
 You are a reasoning agent tasked with solving the user's logic-based questions. 
 Logically arrive at the solution, and be factual. 
 In your answers, clearly detail the steps involved and give the final answer. 
+If it include math equations, stop at the step and return.
 Provide the response in bullet points. 
 Question: {question}
 """
@@ -117,35 +120,26 @@ Question: {question}
             name="ReasoningTool",
             func=self.reasoning.run,
             description="Useful for when you need to answer logic-based/reasoning questions.",
+            handle_tool_error="ReasoningTool execution failed, try to use other tool or change the input",
         )
 
     def SAQ_prompt(saq):
         prompt_template = PromptTemplate.from_template("""
 The following is a math question
 Question: {question}
-Please solve the question and return the answer and solution in the following format
-Answer: the brief answer ONLY
-Solution: the way to solve the question, briefly display the steps involved and give the final answer. 
-Provide the response in bullet points. Enclose equations with dollar signs ($).
+Please solve the question and return the answer and solution
+
+Example Format: 
+ANSWER: the answer ONLY
+SOLUTION: the way to solve the question, briefly display the steps involved and give the final answer. 
+
+Provide the response in bullet points. Enclose equations with two dollar signs ($). Begin!
 """
         )
         return prompt_template.format(question = saq)
-        
-    def MCQ_prompt(mcq):
-        prompt_template = PromptTemplate.from_template("""
-The following is a math question and 4 options
-Question: {question}
-A: {option_1}
-B: {option_2}
-C: {option_3}
-D: {option_4}
-Please solve the question and return the answer and solution in the the following format
-Answer: the correct option A, B, C, or D
-Solution: the way to solve the question, briefly display the steps involved and give the final answer. 
-Provide the response in bullet points.  Enclose equations with dollar signs ($).
-"""
-        )
-        return prompt_template.format(
+    
+    def MCQ_to_SAQ(mcq):
+        return "{question} A: {option_1} B: {option_2} C: {option_3} D: {option_4}".format(
             question = mcq["question"], 
             option_1 = mcq["option_1"],
             option_2 = mcq["option_2"],

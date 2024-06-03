@@ -1,7 +1,7 @@
 import chainlit as cl
 from chainlit.input_widget import Select, Slider, Switch
 from chainlit.types import ThreadDict
-from langchain.memory import ChatMessageHistory
+from langchain_community.chat_message_histories import ChatMessageHistory
 from typing import Optional
 from src.service.math_solver import MathSolver
 from src.service.translator import Translator
@@ -141,14 +141,14 @@ def auth_callback(account: str, password: str) -> Optional[cl.User]:
 
 @cl.on_message
 async def on_message(message: cl.Message) -> None:
-    await get_solution(MathSolver.SAQ_prompt(message.content))
+    await get_solution(message.content)
 
 
 @cl.action_callback("SAQ")
 async def SAQ() -> None:
     res = await askMessage("請輸入問題")
     if res:  
-        await get_solution(MathSolver.SAQ_prompt(res))
+        await get_solution(res)
 
 
 @cl.action_callback("MCQ")
@@ -165,26 +165,32 @@ async def MCQ() -> None:
     res = await askMessage("請輸入選項4")
     if res: mcq['option_4'] = res
 
-    await get_solution(MathSolver.MCQ_prompt(mcq), "MCQ")
+    await get_solution(MathSolver.MCQ_to_SAQ(mcq), "MCQ")
 
 @cl.step
 async def solving(question) -> dict:
     agent = cl.user_session.get("agent")
+    question_prompt = MathSolver.SAQ_prompt(question)
     response = await agent.acall(
-        {"input":question},
+        {"input":question_prompt},
         callbacks=[cl.AsyncLangchainCallbackHandler()]\
     )
     # await reply(response["output"])
-    prompt = cl.user_session.get("translator").question_solution_prompt(question, response["output"])
-    response["output"] = cl.user_session.get("translator").llm_translate(prompt)
+    translator = cl.user_session.get("translator")
+    prompt = translator.question_solution_prompt(question, response["output"])
 
-    return response
+    res = {
+        'input': question,
+        'output': await translator.allm_translate(prompt),
+        #'intermediate_steps': response['intermediate_steps'],
+    }
+    return res
 
 @cl.step
 async def generating(question, solution) -> dict:
     generator = cl.user_session.get("question_generator")
     question_prompt = generator.question_generation_prompt(question, solution)
-    new_question = generator.reply(question_prompt)
+    new_question = await generator.areply(question_prompt)
 
     return {'output': new_question}
 
@@ -192,34 +198,39 @@ async def generating(question, solution) -> dict:
 async def evaluating(question, solution) -> dict:
     evaluator = cl.user_session.get("question_evaluator")
     res = {}
-    res['QA'] = evaluator.reply(evaluator.QA_evaluation_prompt(question, solution))
-    res['COT'] = evaluator.reply(evaluator.cot_evaluation_prompt(question, solution))
+    res['QA'] = await evaluator.areply(evaluator.QA_evaluation_prompt(question, solution))
+    res['COT'] = await evaluator.areply(evaluator.cot_evaluation_prompt(question, solution))
     
     return res
 
-async def get_solution(input, type="SAQ") -> None:
+async def get_solution(question, type="SAQ") -> None:
     solved = False
     while not solved:
-        response = await solving(input)
+        response = await solving(question)
         await cl.Message(content=response["output"]).send()
 
-        yn = await YesOrNo("以上解答內容正確嗎?")
-
-        if yn == "YES":
-            solved = True
-        elif yn == "NO":
-            await reply("重新計算答案")
+        if cl.user_session.get("human_intervention"):
+            yn = await YesOrNo("是否重新生成解答?")
+            if yn == "YES":
+                solved = True
+            elif yn == "NO":
+                await reply("重新計算答案")
+            else:
+                await reply("等候時間過長，請重新開始")
+                break
         else:
-            await reply("等候時間過長，請重新開始")
-            break
+            res = await evaluating(response['input'], response['output'])
+            if res and res['QA'] and res['COT']:
+                if 'RATIONALITY: CORRECT' in res['QA'] and 'GRADE: CORRECT' in res['COT']: 
+                    solved = True
     
     if solved and cl.user_session.get("generate_enabled"):
         await generate_new_quesstion(response)
     else:
-        await reply("對話結束")
+        await reply("解題完成，對話結束")
 
 
-async def generate_solve_evaluate(question, solution, steps) -> dict:
+async def generate_solve_evaluate(question, solution) -> dict:
     generate_time = 0
     new_question = None
     new_solution = None
@@ -227,7 +238,7 @@ async def generate_solve_evaluate(question, solution, steps) -> dict:
         new_question, new_solution, eval = None, None, None
         res = await generating(question, solution)
         if res: new_question = res['output']
-        res = await solving(MathSolver.SAQ_prompt(new_question))
+        res = await solving(new_question)
         if res: new_solution = res['output']
         res = await evaluating(new_question, new_solution)
         if res and res['QA'] and res['COT']:
@@ -242,13 +253,13 @@ async def generate_solve_evaluate(question, solution, steps) -> dict:
 
 
 async def generate_new_quesstion(response) -> None:
-    question, solution, steps = response['input'], response['output'], response['intermediate_steps']
+    question, solution = response['input'], response['output']
 
     finished = False
     while not finished:
         await reply("題目生成中...")
 
-        res = await generate_solve_evaluate(question, solution, steps)
+        res = await generate_solve_evaluate(question, solution)
         if res:
             await cl.Message(content=res['question']).send()
             await cl.Message(content=res['solution']).send()
@@ -256,7 +267,7 @@ async def generate_new_quesstion(response) -> None:
             await reply("題目生成失敗")
             break
         
-        yn = await YesOrNo("是否要更重新生成題目")
+        yn = await YesOrNo("是否重新生成題目")
         if yn == "NO":
             finished = True
         else:

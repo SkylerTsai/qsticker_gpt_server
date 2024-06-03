@@ -20,13 +20,14 @@ You are a teacher evaluate a question and solution.
 You are given a question abd corresponding answer and solution. 
 You are asked to evaluate the question and the solution's rationality as either CORRECT or INCORRECT.
 For example, if the age of a person is not integer or less than zero, it is incorrect.
+Noted that the answer must be existed, or it is incorrect.
 If the question or the answer is not rational, please write down the explanation.
 
 Example Format:
 QUESTION: question here
 ANSWER AND SOLUTION: student's answer and solution here
-EXPLANATION: 
-RATIONALITY: 
+EXPLANATION: the reason why it meet / not meet the rationality here
+RATIONALITY: CORRECT or INCORRECT here
 
 Grade the student answers based ONLY on their factual accuracy. 
 Ignore the correctness of the equations in the answer and solution. Begin!
@@ -53,8 +54,9 @@ STUDENT ANSWER AND SOLUTION: student's answer and solution here
 EXPLANATION: step by step reasoning here
 GRADE: CORRECT or INCORRECT here
 
-Grade the student answers based ONLY on their factual accuracy. 
-Ignore differences in punctuation and phrasing between the student answer and true answer. 
+Grade the student answers based ONLY on the steps they take. 
+You only need to check if the equation is correct; there's no need to calculate the result.
+Ignore differences in punctuation and phrasing between the student answer and true answer.
 It is OK if the student answer contains more information than the true answer, as long as it does not contain any conflicting statements. Begin! 
 
 QUESTION: {question}
@@ -66,4 +68,8 @@ EXPLANATION:
 
     def reply(self, msg):
         return self.llm.invoke(msg).content
+    
+    async def areply(self, msg):
+        res = await self.llm.ainvoke(msg)
+        return res.content
 
