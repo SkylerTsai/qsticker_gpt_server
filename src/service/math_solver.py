@@ -4,13 +4,14 @@ from langchain.agents import Tool, AgentExecutor, create_tool_calling_agent
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import WikipediaAPIWrapper
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 
 from src.dependencies.settings import get_settings
 from src.controller.langchain.schema.question_solution import QuestionSolution
 from src.service.MyLLMSymbolicMathChain.base import LLMSymbolicMathChain
 
 class MathSolver:
-    def __init__(self, model="gpt-4-1106-preview", temperature=0) -> None:
+    def __init__(self, model="gpt-4o", temperature=0) -> None:
         # llm
         self.llm_init(model, temperature)
 
@@ -35,15 +36,16 @@ class MathSolver:
                 ("placeholder", "{agent_scratchpad}"),
             ]
         )
-        
+
         self.tool_agent = create_tool_calling_agent(self.llm, self.tools, prompt)
 
         self.agent = AgentExecutor(
             agent = self.tool_agent,
             tools = self.tools,
-            early_stopping_method='generate', # better be 'generate' but bug exist
+            early_stopping_method='force', # better be 'generate' but bug exist
             verbose=False,
-            max_execution_time=60,
+            stream_runnable=False,
+            max_execution_time=180,
             max_iterations=10,
             handle_parsing_errors=True,
             return_intermediate_steps=True

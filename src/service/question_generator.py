@@ -4,7 +4,7 @@ from langchain_openai import ChatOpenAI
 from src.dependencies.settings import get_settings
 
 class QuestionGenerator:
-    def __init__(self, model="gpt-4-1106-preview", temperature=0.8, tools=[]) -> None:
+    def __init__(self, model="gpt-4o", temperature=0.8, tools=[]) -> None:
         self.llm_init(model, temperature)
     
     def llm_init(self, model, temperature):

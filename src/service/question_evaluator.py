@@ -4,7 +4,7 @@ from langchain_openai import ChatOpenAI
 from src.dependencies.settings import get_settings
 
 class QuestionEvaluator:
-    def __init__(self, model="gpt-4-1106-preview", temperature=0., tools=[]) -> None:
+    def __init__(self, model="gpt-4o", temperature=0., tools=[]) -> None:
         self.llm_init(model, temperature)
     
     def llm_init(self, model, temperature):
@@ -65,6 +65,57 @@ EXPLANATION:
 """
         )
         return prompt_template.format(question=question, solution=solution)
+    
+    def QA_context_prompt(self, question, context, student_answer):
+        prompt_template = PromptTemplate.from_template("""
+You are a teacher grading a quiz.
+You are given a question, the context the question is about, and the student's answer. 
+You are asked to score the student's answer as either CORRECT or INCORRECT, based on the context.
+
+Example Format:
+QUESTION: question here
+CONTEXT: context the question is about here
+STUDENT ANSWER: student's answer here
+GRADE: CORRECT or INCORRECT here
+
+Grade the student answers based ONLY on their factual accuracy. 
+Ignore differences in punctuation and phrasing between the student answer and true answer. 
+It is OK if the student answer contains more information than the true answer, as long as it does not contain any conflicting statements. Begin! 
+
+QUESTION: {question}
+CONTEXT: {context}
+STUDENT ANSWER: {student_answer}
+"""
+        )
+        return prompt_template.format(question=question, context=context, student_answer=student_answer)
+    
+    def cot_context_prompt(self, question, context, student_answer):
+        prompt_template = PromptTemplate.from_template("""
+You are a teacher grading a quiz.
+You are given a question, the context the question is about, and the student's answer. 
+You are asked to score the student's answer as either CORRECT or INCORRECT, based on the context.
+Write out in a step by step manner your reasoning to be sure that your conclusion is correct.
+Avoid simply stating the correct answer at the outset.
+
+Example Format:
+QUESTION: question here
+CONTEXT: context the question is about here
+STUDENT ANSWER: student's answer here
+EXPLANATION: step by step reasoning here
+GRADE: CORRECT or INCORRECT here
+
+Grade the student answers based ONLY on their factual accuracy. 
+You only need to check if the equation is correct; there's no need to calculate the result.
+Ignore differences in punctuation and phrasing between the student answer and true answer. 
+It is OK if the student answer contains more information than the true answer, as long as it does not contain any conflicting statements. Begin! 
+
+QUESTION: {question}
+CONTEXT: {context}
+STUDENT ANSWER: {student_answer}
+EXPLANATION: 
+"""
+        )
+        return prompt_template.format(question=question, context=context, student_answer=student_answer)
 
     def reply(self, msg):
         return self.llm.invoke(msg).content
@@ -72,4 +123,3 @@ EXPLANATION:
     async def areply(self, msg):
         res = await self.llm.ainvoke(msg)
         return res.content
-
