@@ -1,17 +1,17 @@
 from langchain.chains import LLMMathChain, LLMChain
 from langchain.prompts import PromptTemplate
-from langchain.agents.agent_types import AgentType
-from langchain.agents import Tool, initialize_agent
+from langchain.agents import Tool, AgentExecutor, create_tool_calling_agent
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import WikipediaAPIWrapper
-from langchain.memory import ChatMessageHistory
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 
 from src.dependencies.settings import get_settings
 from src.controller.langchain.schema.question_solution import QuestionSolution
 from src.service.MyLLMSymbolicMathChain.base import LLMSymbolicMathChain
 
 class MathSolver:
-    def __init__(self, model="gpt-4-1106-preview", temperature=0) -> None:
+    def __init__(self, model="gpt-4o", temperature=0) -> None:
         # llm
         self.llm_init(model, temperature)
 
@@ -25,22 +25,32 @@ class MathSolver:
 
         self.tools = [self.wiki_tool, self.math_tool, self.sym_tool, self.reasoning_tool]
 
-        self.agent = initialize_agent(
-            tools=self.tools,
-            llm=self.llm,
-            agent_instructions="""
-Try to solve a math function with given tools.
-Trust the answer from the calculators
-Ignore the problem that the answer is not integer.
-""",
-            agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-            early_stopping_method='generate',
-            verbose=True,
-            max_execution_time=60,
-            max_iterations=5,
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    "You are a helpful assistant. Make sure to use the tools for information.",
+                ),
+                ("placeholder", "{chat_history}"),
+                ("human", "{input}"),
+                ("placeholder", "{agent_scratchpad}"),
+            ]
+        )
+
+        self.tool_agent = create_tool_calling_agent(self.llm, self.tools, prompt)
+
+        self.agent = AgentExecutor(
+            agent = self.tool_agent,
+            tools = self.tools,
+            early_stopping_method='force', # better be 'generate' but bug exist
+            verbose=False,
+            stream_runnable=False,
+            max_execution_time=180,
+            max_iterations=10,
             handle_parsing_errors=True,
             return_intermediate_steps=True
         )
+
 
     def llm_init(self, model, temperature):
         self.llm = ChatOpenAI(
@@ -59,6 +69,7 @@ A useful tool for searching the Internet to find information on world events, is
 Worth using for general topics. 
 Use precise questions.
 """,
+            handle_tool_error="Wikipedia execution failed, try to use other tool or change the input",
         )
 
     def caculator_init(self):
@@ -70,20 +81,21 @@ Use precise questions.
 Useful for when you need to answer a single math expression. 
 This tool is only for math questions and nothing else. 
 Only input ONE math expression.
-"""
-            ,
+""",
+            handle_tool_error="Calculator execution failed, try to use other tool or change the input",
         )
     
     def sym_init(self):
         self.sym = LLMSymbolicMathChain.from_llm(llm=self.llm)
         self.sym_tool = Tool.from_function(
-            name="Symbolic Math Solver",
+            name="SymbolicMathSolver",
             func=self.sym.run,
             description="""
 Useful for when you need to answer questions about symbolic math. 
 This tool is only for symbolic math questions and nothing else. 
 Only input math equations seperated by ','
- """,
+""",
+            handle_tool_error="SymbolicMathSolver execution failed, try to use other tool or change the input",
         )
 
     def reasoning_init(self):
@@ -91,6 +103,7 @@ Only input math equations seperated by ','
 You are a reasoning agent tasked with solving the user's logic-based questions. 
 Logically arrive at the solution, and be factual. 
 In your answers, clearly detail the steps involved and give the final answer. 
+If it include math equations, stop at the step and return.
 Provide the response in bullet points. 
 Question: {question}
 """
@@ -106,38 +119,29 @@ Question: {question}
         )
 
         self.reasoning_tool = Tool.from_function(
-            name="Reasoning Tool",
+            name="ReasoningTool",
             func=self.reasoning.run,
             description="Useful for when you need to answer logic-based/reasoning questions.",
+            handle_tool_error="ReasoningTool execution failed, try to use other tool or change the input",
         )
 
-    def SAQ_prompt(self, saq):
+    def SAQ_prompt(saq):
         prompt_template = PromptTemplate.from_template("""
 The following is a math question
-Quesrion: {question}
-Please solve the question and return the answer and solution in the following format
-Answer: the brief answer ONLY
-Solution: the way to solve the question, briefly display the steps involved and give the final answer. 
-Provide the response in bullet points. Enclose equations with dollar signs ($).
+Question: {question}
+Please solve the question and return the answer and solution
+
+Example Format: 
+ANSWER: the answer ONLY
+SOLUTION: the way to solve the question, briefly display the steps involved and give the final answer. 
+
+Provide the response in bullet points. Enclose equations with two dollar signs ($). Begin!
 """
         )
         return prompt_template.format(question = saq)
-        
-    def MCQ_prompt(self, mcq):
-        prompt_template = PromptTemplate.from_template("""
-The following is a math question and 4 options
-Quesrion: {question}
-A: {option_1}
-B: {option_2}
-C: {option_3}
-D: {option_4}
-Please solve the question and return the answer and solution in the the following format
-Answer: the correct option A, B, C, or D
-Solution: the way to solve the question, briefly display the steps involved and give the final answer. 
-Provide the response in bullet points.  Enclose equations with dollar signs ($).
-"""
-        )
-        return prompt_template.format(
+    
+    def MCQ_to_SAQ(mcq):
+        return "{question} A: {option_1} B: {option_2} C: {option_3} D: {option_4}".format(
             question = mcq["question"], 
             option_1 = mcq["option_1"],
             option_2 = mcq["option_2"],
