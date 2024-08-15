@@ -68,7 +68,7 @@ async def start() -> None:
             ),
             Switch(
                 id="Human-intervention",
-                label="Enable human intervention",
+                label="Enable Human Intervention",
                 initial=True,
             ),
             Switch(
@@ -102,12 +102,12 @@ async def setup(settings: cl.ChatSettings) -> None:
     #print("on_settings_update", settings)
     cl.user_session.set("math_solver", MathSolver(
         model=settings["Model"], 
-        temperature=settings["Temperature"],
+        temperature=0.,
     ))
     cl.user_session.set("agent", cl.user_session.get("math_solver").agent)
     cl.user_session.set("translator", Translator(
         model=settings["Model"], 
-        temperature=settings["Temperature"], 
+        temperature=0., 
         lang=settings["Language"],
     ))
     cl.user_session.set("question_generator", QuestionGenerator(
@@ -116,7 +116,7 @@ async def setup(settings: cl.ChatSettings) -> None:
     ))
     cl.user_session.set("question_evaluator", QuestionEvaluator(
         model=settings["Model"], 
-        temperature=settings["Temperature"],
+        temperature=0.,
     ))
     cl.user_session.set("human_intervention", settings["Human-intervention"])
     cl.user_session.set("generate_enabled", settings["Generate-enabled"])
@@ -244,7 +244,7 @@ async def get_solution(question, type="SAQ") -> None:
         else:
             res = await evaluating(response['input'], response['output'])
             if res and res['QA'] and res['COT']:
-                if 'RATIONALITY: CORRECT' in res['QA'] and 'GRADE: CORRECT' in res['COT']: 
+                if 'GRADE: CORRECT' in res['QA'] and 'GRADE: CORRECT' in res['COT']: 
                     solved = True
     
     if solved and cl.user_session.get("generate_enabled"):
@@ -292,9 +292,11 @@ async def generate_new_quesstion(response) -> None:
             await reply("題目生成失敗")
             break
         
-        yn = await YesOrNo("是否重新生成題目")
+        yn = await YesOrNo("是否重新生成題目?")
         if yn == "NO":
             finished = True
+        elif yn == 'YES':
+            continue
         else:
             await reply("等候時間過長，請重新開始")
             break

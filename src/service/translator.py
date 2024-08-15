@@ -35,6 +35,7 @@ ANSWER: the brief answer of the question
 SOLUTION: the solution in bullet point
 
 Make sure the subjects in the question and solution are the same. 
+If there are equations in the answer or solution, write the equations in latex format and enclosing with dollar signs ($).
 If the language translate to is zh-TW, replace ANSWER and SOLUTION with 答案 and 解析. Begin! 
 """
         )
@@ -44,7 +45,7 @@ If the language translate to is zh-TW, replace ANSWER and SOLUTION with 答案 a
         prompt_template = PromptTemplate.from_template("""
 Tranlate the following question into language {language}.
 Question: {question}
-Return the translated Question.
+Return the translated Question. Write the equations in latex format and enclosing with dollar signs ($).
 
 Format Example:
 QUESTION: the translated question here

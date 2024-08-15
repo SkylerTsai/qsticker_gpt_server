@@ -135,7 +135,7 @@ Example Format:
 ANSWER: the answer ONLY
 SOLUTION: the way to solve the question, briefly display the steps involved and give the final answer. 
 
-Provide the response in bullet points. Enclose equations with two dollar signs ($). Begin!
+Provide the response in bullet points. Enclose equations with dollar signs $, e.g., $a + b = 10$. Begin!
 """
         )
         return prompt_template.format(question = saq)

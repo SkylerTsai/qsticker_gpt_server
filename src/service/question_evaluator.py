@@ -17,7 +17,7 @@ class QuestionEvaluator:
     def QA_evaluation_prompt(self, question, solution):
         prompt_template = PromptTemplate.from_template("""
 You are a teacher evaluate a question and solution.
-You are given a question abd corresponding answer and solution. 
+You are given a question and corresponding answer and solution. 
 You are asked to evaluate the question and the solution's rationality as either CORRECT or INCORRECT.
 For example, if the age of a person is not integer or less than zero, it is incorrect.
 Noted that the answer must be existed, or it is incorrect.
@@ -27,7 +27,7 @@ Example Format:
 QUESTION: question here
 ANSWER AND SOLUTION: student's answer and solution here
 EXPLANATION: the reason why it meet / not meet the rationality here
-RATIONALITY: CORRECT or INCORRECT here
+GRADE: CORRECT or INCORRECT here
 
 Grade the student answers based ONLY on their factual accuracy. 
 Ignore the correctness of the equations in the answer and solution. Begin!

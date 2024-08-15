@@ -22,10 +22,9 @@ Solution: {solution}
 Please construct a new similar question which has the same structure but with different objects and numbers.
 
 Example Format:
-New question: the new question here
+New question: the new question only here
 
-Reply the new question only, don't reply the new solution. 
-Enclose equations with two dollar signs ($). Begin!
+Reply the new question only, don't reply the new solution. Begin!
 New question:
 """
         )

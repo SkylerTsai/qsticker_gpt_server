@@ -10,8 +10,8 @@ class UserInfoRequestBody(CamelBase):
             "examples": [
                 dict_to_camel(
                     {
-                        "account": "testdemo",
-                        "password": "Dofish1024",
+                        "account": "AAAAAAAA",
+                        "password": "AAAAAAAA",
                     }
                 )
             ]
